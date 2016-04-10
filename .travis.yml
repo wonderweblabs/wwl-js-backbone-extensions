@@ -1,0 +1,11 @@
+language: node_js
+
+node_js:
+  - 4.0.0
+  - 4.4.2
+  - 5.10.1
+
+before_script:
+  - cp karma.conf.example.js karma.conf.js
+
+script: npm run test-ci
