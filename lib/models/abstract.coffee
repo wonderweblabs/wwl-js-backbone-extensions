@@ -27,14 +27,13 @@ module.exports = class Abstract extends require('backbone').Model
   # instance by using the #getRandomBinaryId method.
   binaryId: false
 
-  # @private
-  _idSetByClient: false
-
   # @constructor
   constructor: (attributes, options = {}) ->
     @options        = options || {}
     @context        = options.context
     @_synchronized  = 0
+    @_synchronizing = false
+    @_idSetByClient = false
 
     if _.isString(@getOption('rootName')) == false || @getOption('rootName').length <= 0
       throw new Error('AbstractModel: must have a valid rootName string.')
@@ -78,9 +77,13 @@ module.exports = class Abstract extends require('backbone').Model
   getRemoteErrors: ->
     @_remoteErrorsCollection or= new (require('../collections/errors_collection'))()
 
-  # TODO
+  # Whether the model has been synced once or more with the server
   isSynced: ->
     @_synchronized > 0
+
+  # Whether the model is currently in sync process or not
+  isSyncing: ->
+    @_synchronizing || false
 
   # TODO
   isNew: ->
@@ -105,8 +108,10 @@ module.exports = class Abstract extends require('backbone').Model
   # You can manipulate the url used for server communications here.
   # This might be useful for example, if you want to add a subpath
   # or a full qualified host for your urls.
-  prependedUrlRoot: ->
-    @getOption('urlRoot')
+  prependedUrlRoot: (url) ->
+    return @getOption('urlRoot') unless _.isString(url)
+
+    ['', url.replace(/^\//, '')].join('/')
 
   # Unset all attributes except of the id.
   #
@@ -169,6 +174,18 @@ module.exports = class Abstract extends require('backbone').Model
 
     _.omit json, @getOption('jsonOmitted')
 
+  # Adds before:save event to the model
+  save: (key, val, options) ->
+    @trigger 'before:save', @, key, val, options
+
+    super(key, val, options)
+
+  # Overwriting and append each sync call
+  sync: (method, model, options = {}) ->
+    @_syncPrepare method, model, options
+
+    super method, model, options
+
 
   # ---------------------------------------------
   # private methods
@@ -192,5 +209,34 @@ module.exports = class Abstract extends require('backbone').Model
     _.each errorsHash, (v, k) =>
       @getRemoteErrors().add { id: k, errors: v }, { merge: true }
 
+  # @nodoc
+  _syncPrepare: (method, model, options) ->
+    @_synchronizing = true
+    @trigger 'beforeSync', method, model, options
+
+    options.url or= @prependedUrlRoot(_.result(@, 'url'))
+
+    options.attrs = @toSyncJSON(options) unless options['attrs']
+
+    originalSuccess     = options.success
+    originalError       = options.error
+    unsetOnSync         = options.unsetOnSync
+
+    options.success = (responseData, resp, options = {}) =>
+      @_idSetByClient = false
+      @unsetAll() if unsetOnSync == true
+      @_syncAlways responseData, resp, options, originalSuccess
+
+    options.error   = (responseData, resp, options = {}) =>
+      @_syncAlways responseData, resp, options, originalError
+
+  # @nodoc
+  _syncAlways: (responseData, resp, options, callback = null) =>
+    @_synchronized += 1
+    @_synchronizing = false
+
+    callback(responseData, resp, options) if _.isFunction(callback)
+
+    @unset 'errors', { silent: true }
 
 

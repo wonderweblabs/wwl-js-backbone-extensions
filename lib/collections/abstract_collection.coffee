@@ -17,8 +17,10 @@ module.exports = class AbstractCollection extends require('backbone').Collection
 
   # @constructor
   constructor: (attributes, options = {}) ->
-    @options = options || {}
-    @context = options.context
+    @options        = options || {}
+    @context        = options.context
+    @_synchronized  = 0
+    @_synchronizing = false
 
     if _.isString(@getOption('rootName')) == false || @getOption('rootName').length <= 0
       throw new Error('AbstractCollection: must have a valid rootName string.')
@@ -42,13 +44,27 @@ module.exports = class AbstractCollection extends require('backbone').Collection
   getMeta: ->
     @_meta or= {}
 
+  # More failsafe way to load objects
+  get: (obj) ->
+    if _.isObject(obj) && _.isObject(obj.data) then super(obj.data) else super(obj)
+
+  # Whether the model has been synced once or more with the server
+  isSynced: ->
+    @_synchronized > 0
+
+  # Whether the model is currently in sync process or not
+  isSyncing: ->
+    @_synchronizing || false
+
   # Overwrite that function!
   #
   # You can manipulate the url used for server communications here.
   # This might be useful for example, if you want to add a subpath
   # or a full qualified host for your urls.
-  prependedUrl: ->
-    @getOption('url')
+  prependedUrl: (url) ->
+    return @getOption('url') unless _.isString(url)
+
+    ['', url.replace(/^\//, '')].join('/')
 
   # You might want to you toJSON for other things than syncing to the
   # server. That's why abstract uses toSyncJSON to build data
@@ -61,6 +77,12 @@ module.exports = class AbstractCollection extends require('backbone').Collection
 
     if withoutRoot == true then data else { "#{@getOption('rootName')}": data }
 
+  # Overwriting and append each sync call
+  sync: (method, collection, options) =>
+    @_syncPrepare method, collection, options
+
+    super method, collection, options
+
 
   # ---------------------------------------------
   # private methods
@@ -70,3 +92,34 @@ module.exports = class AbstractCollection extends require('backbone').Collection
     options.context = @getOption('context')
 
     super(attrs, options)
+
+  # @nodoc
+  _syncPrepare: (method, collection, options) =>
+    @_synchronizing = true
+    @trigger 'beforeSync', method, collection, options
+
+    originalSuccess = options.success
+    originalError   = options.error
+
+    options._synchronized = true
+
+    options.url or= @prependedUrlRoot(_.result(@, 'url'))
+
+    options.success = (responseData, resp, options = {}) =>
+      @_syncAlways responseData, resp, options, originalSuccess
+
+    options.error   = (responseData, resp, options = {}) =>
+      @_syncAlways responseData, resp, options, originalError
+
+  # @nodoc
+  _syncAlways: (responseData, resp, options, callback = null) =>
+    @_synchronized += 1
+    @_synchronizing = false
+
+    modelsData = []
+    _.each responseData.data, (data)->
+      modelsData.push({data: data})
+
+    @_meta = responseData['meta'] if responseData['meta']?
+
+    callback(modelsData, resp, options) if _.isFunction(callback)
