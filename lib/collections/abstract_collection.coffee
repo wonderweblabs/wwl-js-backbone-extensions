@@ -48,6 +48,33 @@ module.exports = class AbstractCollection extends require('backbone').Collection
   get: (obj) ->
     if _.isObject(obj) && _.isObject(obj.data) then super(obj.data) else super(obj)
 
+  # Returns { model: ..model instance.. } if the model for the passed id is already
+  # listed inside the collection.
+  #
+  # If not, it'll create it by id and directly fetch it from the server. You'll get
+  # { model: ..model instance.., jqxhr: ..jqxhr object.. }.
+  #
+  # You can pass forceFetch=true to force loading.
+  getOrFetch: (id, attributes = {}, forceFetch = false) ->
+    return { model: @get(id) } if _.isObject(@get(id)) && forceFetch == false
+
+    model = @_prepareModel(_.extend({}, attributes, { id: id }))
+
+    @set model, { add: true, merge: true, remove: false }
+
+    { model: model, jqxhr: model.fetch() }
+
+  # Returns the model instance found by id. If there is no instance for the
+  # passed id yet, it'll create it and will return the new one.
+  getOrInitialize: (id, attributes = {}, options = {}) ->
+    return @get(id) if _.isObject(@get(id))
+
+    model = @_prepareModel(_.extend({}, attributes, { id: id }), options)
+
+    @set model, { add: true, merge: true, remove: false }
+
+    model
+
   # Whether the model has been synced once or more with the server
   isSynced: ->
     @_synchronized > 0
