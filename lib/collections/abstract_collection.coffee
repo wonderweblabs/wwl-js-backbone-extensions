@@ -88,7 +88,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
   # You can manipulate the url used for server communications here.
   # This might be useful for example, if you want to add a subpath
   # or a full qualified host for your urls.
-  prependedUrl: (url) ->
+  prependedUrlRoot: (url) ->
     return @getOption('url') unless _.isString(url)
 
     ['', url.replace(/^\//, '')].join('/')
