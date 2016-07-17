@@ -45,6 +45,9 @@ module.exports = class Abstract extends require('backbone').Model
 
     @_ensureBinaryId()
 
+  getRootName: ->
+    @getOption('rootName')
+
   # Returns the value for the passed optionName name, either defined on the
   # passed options object or on the prototype.
   getOption: (optionName) ->
@@ -125,11 +128,13 @@ module.exports = class Abstract extends require('backbone').Model
   #
   # Important: if you need to define custom parsing logic, always call
   # super(..) to ensure the full feature set of abstract.
-  parse: (data, options = {}) ->
+  parse: (data = {}, options = {}) ->
     @_synchronized += 1 if options._synchronized == true
 
-    extractedData   = data[@getOption('rootName')]
-    extractedMeta   = _.omit(data, @getOption('rootName'))
+    data[@getRootName()] or= {}
+
+    extractedData   = data[@getRootName()]
+    extractedMeta   = _.omit(data, @getRootName())
 
     @_parseErrors(extractedData.errors, true)
     @_parseErrors(extractedMeta.errors)
@@ -152,7 +157,7 @@ module.exports = class Abstract extends require('backbone').Model
     withoutRoot = options.withoutRoot
     withoutRoot = @getOption('syncWithoutRoot') if withoutRoot != true
 
-    if withoutRoot == true then data else { "#{@getOption('rootName')}": data }
+    if withoutRoot == true then data else { "#{@getRootName()}": data }
 
   # Filters passed data with
   # 1. filterPermittedJSON
