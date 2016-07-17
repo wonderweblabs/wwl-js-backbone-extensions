@@ -240,7 +240,9 @@ module.exports = class Abstract extends require('backbone').Model
   # private methods
 
   # @nodoc
-  _onSelfChange: =>
+  _onSelfChange: (model, options) =>
+    return if _.isObject(options) && options._resetDirty == true
+
     @setDirty(true)
 
   # @nodoc
