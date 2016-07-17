@@ -30,6 +30,9 @@ module.exports = class AbstractCollection extends require('backbone').Collection
 
     super attributes, options
 
+  getRootName: ->
+    @getOption('rootName')
+
   # Returns the value for the passed optionName name, either defined on the
   # passed options object or on the prototype.
   getOption: (optionName) ->
@@ -99,7 +102,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
   # You can manipulate the url used for server communications here.
   # This might be useful for example, if you want to add a subpath
   # or a full qualified host for your urls.
-  prependedUrlRoot: (url) ->
+  prependedUrl: (url) ->
     return @getOption('url') unless _.isString(url)
 
     ['', url.replace(/^\//, '')].join('/')
@@ -113,7 +116,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
     withoutRoot = options.withoutRoot
     withoutRoot = @getOption('syncWithoutRoot') if withoutRoot != true
 
-    if withoutRoot == true then data else { "#{@getOption('rootName')}": data }
+    if withoutRoot == true then data else { "#{@getRootName()}": data }
 
   # Overwriting and append each sync call
   sync: (method, collection, options) =>
@@ -141,7 +144,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
 
     options._synchronized = true
 
-    options.url or= @prependedUrlRoot(_.result(@, 'url'))
+    options.url or= @prependedUrl(_.result(@, 'url'))
 
     options.success = (responseData, resp, options = {}) =>
       @_syncAlways responseData, resp, options, originalSuccess

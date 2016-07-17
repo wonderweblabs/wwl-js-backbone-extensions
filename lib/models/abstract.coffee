@@ -14,11 +14,11 @@ module.exports = class Abstract extends require('backbone').Model
 
   # Attributes that will be omitted when sending to server
   # It works in combination with jsonOmitted.
-  jsonOmitted: []
+  jsonOmitted: null
 
   # Attributes that will be picked when sending to the server.
   # It works in combination with jsonPermitted.
-  jsonPermitted: []
+  jsonPermitted: null
 
   # Don't include rootName-root to json when sending data to the server.
   syncWithoutRoot: false
@@ -29,6 +29,8 @@ module.exports = class Abstract extends require('backbone').Model
 
   # @constructor
   constructor: (attributes, options = {}) ->
+    @jsonOmitted    = []
+    @jsonPermitted  = []
     @options        = options || {}
     @context        = options.context
     @_synchronized  = 0
@@ -96,6 +98,16 @@ module.exports = class Abstract extends require('backbone').Model
   # TODO
   isNew: ->
     super() || (@_idSetByClient == true && !@isSynced())
+
+  # true/false
+  isValid: (key = null, options = {}) ->
+    if _.isObject(key)
+      options = key
+      key     = null
+
+    super(options)
+
+    @isLocalValid(key) && @isRemoteValid(key)
 
   # true/false whether @getLocalErrors().areAllValid() is true or not
   isLocalValid: (key = null) ->

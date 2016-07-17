@@ -58,12 +58,12 @@ describe 'collections/abstract_collection', ->
       expect(c.getMeta()).to.eql({})
 
   # ------------------------------------------------------------------
-  describe '#prependedUrlRoot', ->
+  describe '#prependedUrl', ->
 
     it 'should return the url attribute by default', ->
       Collection.prototype.url = '/test'
       c = new Collection([], { context: context })
-      expect(c.prependedUrlRoot()).to.eql('/test')
+      expect(c.prependedUrl()).to.eql('/test')
 
   # ------------------------------------------------------------------
   describe '#toSyncJSON', ->
