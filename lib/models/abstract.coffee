@@ -45,6 +45,11 @@ module.exports = class Abstract extends require('backbone').Model
 
     @_ensureBinaryId()
 
+  initialize: (attrs = {}, options = {}) ->
+    super(attrs, options)
+
+    @listenTo @getRemoteErrors(), 'all', @onRemoteErrorsAllEvent
+
   getRootName: ->
     @getOption('rootName')
 
@@ -190,6 +195,17 @@ module.exports = class Abstract extends require('backbone').Model
     @_syncPrepare method, model, options
 
     super method, model, options
+
+  # @private
+  onRemoteErrorsAllEvent: =>
+    args  = Array.prototype.slice.call(arguments)
+    event = args.shift()
+
+    args.unshift("remoteErrors:#{event}")
+    @trigger.apply(@, args)
+
+    args.unshift("remoteErrors:all")
+    @trigger.apply(@, args)
 
 
   # ---------------------------------------------
