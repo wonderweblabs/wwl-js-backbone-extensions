@@ -54,24 +54,35 @@ module.exports = class AbstractCollection extends require('backbone').Collection
   # If not, it'll create it by id and directly fetch it from the server. You'll get
   # { model: ..model instance.., jqxhr: ..jqxhr object.. }.
   #
-  # You can pass forceFetch=true to force loading.
-  getOrFetch: (id, attributes = {}, forceFetch = false) ->
-    return { model: @get(id) } if _.isObject(@get(id)) && forceFetch == false
+  # You can pass fetch=true to force loading.
+  getOrFetch: (id, attributes = {}, fetch = false) ->
+    model       = @get(id)
+    attributes  = _.omit attributes, 'id'
 
-    model = @_prepareModel(_.extend({}, attributes, { id: id }))
+    if _.isObject(model)
+      model.set attributes
+    else
+      fetch = true
+      model = @_prepareModel(_.extend({}, attributes, { id: id }))
 
-    @set model, { add: true, merge: true, remove: false }
+      @set model, { add: true, merge: true, remove: false }
 
-    { model: model, jqxhr: model.fetch() }
+    result = { model: model }
+    result.jqxhr = model.fetch() if fetch == true
+    result
 
   # Returns the model instance found by id. If there is no instance for the
   # passed id yet, it'll create it and will return the new one.
   getOrInitialize: (id, attributes = {}, options = {}) ->
-    return @get(id) if _.isObject(@get(id))
+    model       = @get(id)
+    attributes  = _.omit attributes, 'id'
 
-    model = @_prepareModel(_.extend({}, attributes, { id: id }), options)
+    if _.isObject(model)
+      model.set attributes
+    else
+      model = @_prepareModel(_.extend({}, attributes, { id: id }), options)
 
-    @set model, { add: true, merge: true, remove: false }
+      @set model, { add: true, merge: true, remove: false }
 
     model
 
