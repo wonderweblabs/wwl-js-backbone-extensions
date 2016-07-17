@@ -2,6 +2,8 @@ expect  = require('chai').expect
 jsdom   = require('mocha-jsdom')
 Q       = require('q')
 
+chai.use(require('chai-things'))
+
 describe 'models/abstract', ->
 
   context: null
@@ -154,6 +156,73 @@ describe 'models/abstract', ->
     it 'should be true for new binaryId instance', ->
       m = new Model({}, { context: context, binaryId: true })
       expect(m.isNew()).to.be.true
+
+  # ------------------------------------------------------------------
+  describe 'dirty', ->
+
+    it 'should not be dirty by default', ->
+      m = new Model({}, { context: context })
+      expect(m.isDirty()).to.be.false
+
+    it 'should be dirty after changing an attribute', ->
+      m = new Model({}, { context: context })
+      m.set('name', 'Tester')
+      expect(m.isDirty()).to.be.true
+
+    it 'should not be dirty after syncing', (cb) ->
+      server = sinon.fakeServer.create()
+      server.autoRespond = true
+      server.respondWith(
+        JSON.stringify({
+          data:
+            id:         1
+            name:       'Tester'
+            updated_at: Date.now()
+        })
+      )
+
+      m = new Model({ id: 1 }, { context: context } )
+      m.set('name', 'Tester')
+      expect(m.isDirty()).to.be.true
+
+      m.save().then ->
+        expect(m.isDirty()).to.be.false
+        server.restore()
+        cb()
+
+    it 'should be dirty after syncing with same updated_at', (cb) ->
+      date    = Date.now()
+      server  = sinon.fakeServer.create()
+      server.autoRespond = true
+      server.respondWith(
+        JSON.stringify({
+          data:
+            id:         1
+            name:       'Tester'
+            updated_at: date
+        })
+      )
+
+      m = new Model({ id: 1, updated_at: date }, { context: context } )
+      m.set('name', 'Tester')
+      expect(m.isDirty()).to.be.true
+
+      m.save().then ->
+        expect(m.isDirty()).to.be.true
+        server.restore()
+        cb()
+
+    it 'should be trigger event on dirty change', ->
+      m = new Model({}, { context: context })
+      e = 0
+
+      m.on 'dirty:change', (m, d) -> e += 1
+
+      m.setDirty()
+      m.setDirty(false)
+      m.off()
+
+      expect(e).to.eql(2)
 
 
 

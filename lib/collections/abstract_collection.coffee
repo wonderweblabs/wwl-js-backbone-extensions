@@ -30,6 +30,9 @@ module.exports = class AbstractCollection extends require('backbone').Collection
 
     super attributes, options
 
+  getRootName: ->
+    @getOption('rootName')
+
   # Returns the value for the passed optionName name, either defined on the
   # passed options object or on the prototype.
   getOption: (optionName) ->
@@ -54,24 +57,35 @@ module.exports = class AbstractCollection extends require('backbone').Collection
   # If not, it'll create it by id and directly fetch it from the server. You'll get
   # { model: ..model instance.., jqxhr: ..jqxhr object.. }.
   #
-  # You can pass forceFetch=true to force loading.
-  getOrFetch: (id, attributes = {}, forceFetch = false) ->
-    return { model: @get(id) } if _.isObject(@get(id)) && forceFetch == false
+  # You can pass fetch=true to force loading.
+  getOrFetch: (id, attributes = {}, fetch = false) ->
+    model       = @get(id)
+    attributes  = _.omit attributes, 'id'
 
-    model = @_prepareModel(_.extend({}, attributes, { id: id }))
+    if _.isObject(model)
+      model.set attributes
+    else
+      fetch = true
+      model = @_prepareModel(_.extend({}, attributes, { id: id }))
 
-    @set model, { add: true, merge: true, remove: false }
+      @set model, { add: true, merge: true, remove: false }
 
-    { model: model, jqxhr: model.fetch() }
+    result = { model: model }
+    result.jqxhr = model.fetch() if fetch == true
+    result
 
   # Returns the model instance found by id. If there is no instance for the
   # passed id yet, it'll create it and will return the new one.
   getOrInitialize: (id, attributes = {}, options = {}) ->
-    return @get(id) if _.isObject(@get(id))
+    model       = @get(id)
+    attributes  = _.omit attributes, 'id'
 
-    model = @_prepareModel(_.extend({}, attributes, { id: id }), options)
+    if _.isObject(model)
+      model.set attributes
+    else
+      model = @_prepareModel(_.extend({}, attributes, { id: id }), options)
 
-    @set model, { add: true, merge: true, remove: false }
+      @set model, { add: true, merge: true, remove: false }
 
     model
 
@@ -102,7 +116,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
     withoutRoot = options.withoutRoot
     withoutRoot = @getOption('syncWithoutRoot') if withoutRoot != true
 
-    if withoutRoot == true then data else { "#{@getOption('rootName')}": data }
+    if withoutRoot == true then data else { "#{@getRootName()}": data }
 
   # Overwriting and append each sync call
   sync: (method, collection, options) =>
@@ -130,7 +144,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
 
     options._synchronized = true
 
-    options.url or= @prependedUrlRoot(_.result(@, 'url'))
+    options.url or= @prependedUrl(_.result(@, 'url'))
 
     options.success = (responseData, resp, options = {}) =>
       @_syncAlways responseData, resp, options, originalSuccess

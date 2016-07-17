@@ -14,11 +14,11 @@ module.exports = class Abstract extends require('backbone').Model
 
   # Attributes that will be omitted when sending to server
   # It works in combination with jsonOmitted.
-  jsonOmitted: []
+  jsonOmitted: null
 
   # Attributes that will be picked when sending to the server.
   # It works in combination with jsonPermitted.
-  jsonPermitted: []
+  jsonPermitted: null
 
   # Don't include rootName-root to json when sending data to the server.
   syncWithoutRoot: false
@@ -27,10 +27,16 @@ module.exports = class Abstract extends require('backbone').Model
   # instance by using the #getRandomBinaryId method.
   binaryId: false
 
+  # updated_at
+  updated_at: null
+
   # @constructor
   constructor: (attributes, options = {}) ->
+    @jsonOmitted    = []
+    @jsonPermitted  = []
     @options        = options || {}
     @context        = options.context
+    @updated_at     = attributes.updated_at if attributes.updated_at?
     @_synchronized  = 0
     @_synchronizing = false
     @_idSetByClient = false
@@ -44,6 +50,15 @@ module.exports = class Abstract extends require('backbone').Model
     super attributes, options
 
     @_ensureBinaryId()
+
+  initialize: (attrs = {}, options = {}) ->
+    super(attrs, options)
+
+    @listenTo @getRemoteErrors(), 'all', @onRemoteErrorsAllEvent
+    @listenTo @, 'change', @_onSelfChange
+
+  getRootName: ->
+    @getOption('rootName')
 
   # Returns the value for the passed optionName name, either defined on the
   # passed options object or on the prototype.
@@ -85,9 +100,23 @@ module.exports = class Abstract extends require('backbone').Model
   isSyncing: ->
     @_synchronizing || false
 
+  # Whether the model is dirty or not
+  isDirty: ->
+    @_dirty || false
+
   # TODO
   isNew: ->
     super() || (@_idSetByClient == true && !@isSynced())
+
+  # true/false
+  isValid: (key = null, options = {}) ->
+    if _.isObject(key)
+      options = key
+      key     = null
+
+    super(options)
+
+    @isLocalValid(key) && @isRemoteValid(key)
 
   # true/false whether @getLocalErrors().areAllValid() is true or not
   isLocalValid: (key = null) ->
@@ -102,6 +131,12 @@ module.exports = class Abstract extends require('backbone').Model
       @getRemoteErrors().isValid(key)
     else
       @getRemoteErrors().areAllValid()
+
+  # Update dirty state
+  setDirty: (dirty = true) ->
+    @_dirty = dirty
+
+    @trigger 'dirty:change', @, @_dirty
 
   # Overwrite that function!
   #
@@ -125,11 +160,14 @@ module.exports = class Abstract extends require('backbone').Model
   #
   # Important: if you need to define custom parsing logic, always call
   # super(..) to ensure the full feature set of abstract.
-  parse: (data, options = {}) ->
+  parse: (data = {}, options = {}) ->
     @_synchronized += 1 if options._synchronized == true
+    @setDirty(false) if options._resetDirty == true
 
-    extractedData   = data[@getOption('rootName')]
-    extractedMeta   = _.omit(data, @getOption('rootName'))
+    data[@getRootName()] or= {}
+
+    extractedData   = data[@getRootName()]
+    extractedMeta   = _.omit(data, @getRootName())
 
     @_parseErrors(extractedData.errors, true)
     @_parseErrors(extractedMeta.errors)
@@ -152,7 +190,7 @@ module.exports = class Abstract extends require('backbone').Model
     withoutRoot = options.withoutRoot
     withoutRoot = @getOption('syncWithoutRoot') if withoutRoot != true
 
-    if withoutRoot == true then data else { "#{@getOption('rootName')}": data }
+    if withoutRoot == true then data else { "#{@getRootName()}": data }
 
   # Filters passed data with
   # 1. filterPermittedJSON
@@ -186,9 +224,24 @@ module.exports = class Abstract extends require('backbone').Model
 
     super method, model, options
 
+  # @private
+  onRemoteErrorsAllEvent: =>
+    args  = Array.prototype.slice.call(arguments)
+    event = args.shift()
+
+    args.unshift("remoteErrors:#{event}")
+    @trigger.apply(@, args)
+
+    args.unshift("remoteErrors:all")
+    @trigger.apply(@, args)
+
 
   # ---------------------------------------------
   # private methods
+
+  # @nodoc
+  _onSelfChange: =>
+    @setDirty(true)
 
   # @nodoc
   _ensureBinaryId: ->
@@ -238,5 +291,10 @@ module.exports = class Abstract extends require('backbone').Model
     callback(responseData, resp, options) if _.isFunction(callback)
 
     @unset 'errors', { silent: true }
+
+    if responseData? && responseData[@getRootName()]?
+      @setDirty(false) if responseData[@getRootName()].updated_at != @updated_at
+
+      @updated_at = responseData[@getRootName()].updated_at
 
 
