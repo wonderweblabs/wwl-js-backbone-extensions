@@ -143,6 +143,7 @@ module.exports = class AbstractCollection extends require('backbone').Collection
     originalError   = options.error
 
     options._synchronized = true
+    options._resetDirty = true
 
     options.url or= @prependedUrl(_.result(@, 'url'))
 
