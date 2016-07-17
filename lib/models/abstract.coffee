@@ -27,12 +27,16 @@ module.exports = class Abstract extends require('backbone').Model
   # instance by using the #getRandomBinaryId method.
   binaryId: false
 
+  # updated_at
+  updated_at: null
+
   # @constructor
   constructor: (attributes, options = {}) ->
     @jsonOmitted    = []
     @jsonPermitted  = []
     @options        = options || {}
     @context        = options.context
+    @updated_at     = attributes.updated_at if attributes.updated_at?
     @_synchronized  = 0
     @_synchronizing = false
     @_idSetByClient = false
@@ -51,6 +55,7 @@ module.exports = class Abstract extends require('backbone').Model
     super(attrs, options)
 
     @listenTo @getRemoteErrors(), 'all', @onRemoteErrorsAllEvent
+    @listenTo @, 'change', @_onSelfChange
 
   getRootName: ->
     @getOption('rootName')
@@ -95,6 +100,10 @@ module.exports = class Abstract extends require('backbone').Model
   isSyncing: ->
     @_synchronizing || false
 
+  # Whether the model is dirty or not
+  isDirty: ->
+    @_dirty || false
+
   # TODO
   isNew: ->
     super() || (@_idSetByClient == true && !@isSynced())
@@ -123,6 +132,12 @@ module.exports = class Abstract extends require('backbone').Model
     else
       @getRemoteErrors().areAllValid()
 
+  # Update dirty state
+  setDirty: (dirty = true) ->
+    @_dirty = dirty
+
+    @trigger 'dirty:change', @, @_dirty
+
   # Overwrite that function!
   #
   # You can manipulate the url used for server communications here.
@@ -147,6 +162,7 @@ module.exports = class Abstract extends require('backbone').Model
   # super(..) to ensure the full feature set of abstract.
   parse: (data = {}, options = {}) ->
     @_synchronized += 1 if options._synchronized == true
+    @setDirty(false) if options._resetDirty == true
 
     data[@getRootName()] or= {}
 
@@ -224,6 +240,10 @@ module.exports = class Abstract extends require('backbone').Model
   # private methods
 
   # @nodoc
+  _onSelfChange: =>
+    @setDirty(true)
+
+  # @nodoc
   _ensureBinaryId: ->
     return unless @getOption('binaryId') == true
     return if @has(@idAttribute) && _.isString(@get(@idAttribute)) && @get(@idAttribute).length > 0
@@ -271,5 +291,10 @@ module.exports = class Abstract extends require('backbone').Model
     callback(responseData, resp, options) if _.isFunction(callback)
 
     @unset 'errors', { silent: true }
+
+    if responseData? && responseData[@getRootName()]?
+      @setDirty(false) if responseData[@getRootName()].updated_at != @updated_at
+
+      @updated_at = responseData[@getRootName()].updated_at
 
 

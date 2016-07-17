@@ -47,6 +47,29 @@ model   = new Article({}, { context: context })
 model.on 'before:save', (model, key, val, options) -> #...
 model.on 'beforeSync', (method, model, options) -> #...
 model.on 'remoteErrors:[...backbone collection events...]', #...
+model.on 'dirty:change', (model, dirty) -> # ...
+
+```
+
+
+## Dirty
+
+Dirty requires the server to send `updated_at` as part of the response. If `updated_at`
+changes, the model will be unmarked as dirty.
+
+```coffeescript
+
+model.isDirty() # e.g. false
+model.set('name', 'test')
+model.isDirty() # e.g. true
+model.save()
+model.isDirty() # e.g. false
+
+model.isDirty() # e.g. false
+model.setDirty()
+model.isDirty() # e.g. true
+model.setDirty(false)
+model.isDirty() # e.g. false
 
 ```
 
