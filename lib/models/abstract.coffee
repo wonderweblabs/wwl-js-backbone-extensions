@@ -32,8 +32,6 @@ module.exports = class Abstract extends require('backbone').Model
 
   # @constructor
   constructor: (attributes, options = {}) ->
-    @jsonOmitted    = []
-    @jsonPermitted  = []
     @options        = options || {}
     @context        = options.context
     @updated_at     = attributes.updated_at if attributes.updated_at?
