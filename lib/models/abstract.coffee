@@ -52,6 +52,7 @@ module.exports = class Abstract extends require('backbone').Model
   initialize: (attrs = {}, options = {}) ->
     super(attrs, options)
 
+    @listenTo @getLocalErrors(),  'all', @onLocalErrorsAllEvent
     @listenTo @getRemoteErrors(), 'all', @onRemoteErrorsAllEvent
     @listenTo @, 'change', @_onSelfChange
 
@@ -89,6 +90,10 @@ module.exports = class Abstract extends require('backbone').Model
   # and/or { meta: { errors... } } and/or { errors .... }
   getRemoteErrors: ->
     @_remoteErrorsCollection or= new (require('../collections/errors_collection'))()
+
+  # Return an array of errors in both collections
+  getErrors: ->
+    (@getLocalErrors().models || []).concat(@getRemoteErrors().models || [])
 
   # Whether the model has been synced once or more with the server
   isSynced: ->
@@ -223,15 +228,24 @@ module.exports = class Abstract extends require('backbone').Model
     super method, model, options
 
   # @private
+  onLocalErrorsAllEvent: =>
+    args  = Array.prototype.slice.call(arguments)
+    event = args.shift()
+
+    @trigger.apply(@, ["localErrors:#{event}"].concat(args))
+    @trigger.apply(@, ["errors:#{event}"].concat(args))
+    @trigger.apply(@, ["localErrors:all"].concat(args))
+    @trigger.apply(@, ["errors:all"].concat(args))
+
+  # @private
   onRemoteErrorsAllEvent: =>
     args  = Array.prototype.slice.call(arguments)
     event = args.shift()
 
-    args.unshift("remoteErrors:#{event}")
-    @trigger.apply(@, args)
-
-    args.unshift("remoteErrors:all")
-    @trigger.apply(@, args)
+    @trigger.apply(@, ["remoteErrors:#{event}"].concat(args))
+    @trigger.apply(@, ["errors:#{event}"].concat(args))
+    @trigger.apply(@, ["remoteErrors:all"].concat(args))
+    @trigger.apply(@, ["errors:all"].concat(args))
 
 
   # ---------------------------------------------
