@@ -293,7 +293,8 @@ module.exports = class Abstract extends require('backbone').Model
     @unset 'errors', { silent: true }
 
     if responseData? && responseData[@getRootName()]?
-      @setDirty(false) if responseData[@getRootName()].updated_at != @updated_at
+      if responseData[@getRootName()].updated_at != @updated_at || @isRemoteValid()
+        @setDirty(false)
 
       @updated_at = responseData[@getRootName()].updated_at
 

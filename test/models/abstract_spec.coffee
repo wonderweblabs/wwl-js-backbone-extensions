@@ -190,7 +190,7 @@ describe 'models/abstract', ->
         server.restore()
         cb()
 
-    it 'should be dirty after syncing with same updated_at', (cb) ->
+    it 'should not be dirty after syncing with same updated_at and no remote errors', (cb) ->
       date    = Date.now()
       server  = sinon.fakeServer.create()
       server.autoRespond = true
@@ -200,6 +200,30 @@ describe 'models/abstract', ->
             id:         1
             name:       'Tester'
             updated_at: date
+        })
+      )
+
+      m = new Model({ id: 1, updated_at: date }, { context: context } )
+      m.set('name', 'Tester')
+      expect(m.isDirty()).to.be.true
+
+      m.save().then ->
+        expect(m.isDirty()).to.be.false
+        server.restore()
+        cb()
+
+    it 'should be dirty after syncing with same updated_at and remote errors', (cb) ->
+      date    = Date.now()
+      server  = sinon.fakeServer.create()
+      server.autoRespond = true
+      server.respondWith(
+        JSON.stringify({
+          data:
+            id:         1
+            name:       'Tester'
+            updated_at: date
+            errors:
+              name: ['some error']
         })
       )
 
